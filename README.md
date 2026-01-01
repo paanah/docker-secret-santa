@@ -29,7 +29,7 @@ You do not need to install Node.js or MongoDB on your machine. You only need **D
 ### 1. Clone the Repository
 
 ~~~bash
-git clone https://github.com/YOUR_USERNAME/docker-secret-santa.git
+git clone https://github.com/paanah/docker-secret-santa.git
 cd docker-secret-santa
 ~~~
 
