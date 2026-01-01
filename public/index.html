@@ -281,7 +281,7 @@
         }
     }
 
-    // --- JOIN GAME ---
+    // --- JOIN GAME (1024-BIT + VISUAL DELAY) ---
     window.joinGame = async () => {
         const name = document.getElementById('regName').value.trim();
         const pass = document.getElementById('regPass').value.trim();
@@ -293,40 +293,50 @@
         if(exists) return showToast("This name is already taken!");
 
         btn.disabled = true;
-        const loadToast = showToast("Generating encryption keys...", "loading");
+        const loadToast = showToast("⏳ Generating encryption keys...", "loading");
 
         try {
+            await new Promise(r => setTimeout(r, 1500));
+
             const crypt = new JSEncrypt({default_key_size: 1024});
-            crypt.getKey(async () => {
-                const publicKey = crypt.getPublicKey();
-                const privateKey = crypt.getPrivateKey();
-                const encryptedPrivateKey = CryptoJS.AES.encrypt(privateKey, pass).toString();
+            
+            let publicKey = crypt.getPublicKey();
+            let privateKey = crypt.getPrivateKey();
 
-                const res = await fetch(`${API_URL}/join`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        roomId: currentRoom,
-                        participant: { name, publicKey, encryptedPrivateKey }
-                    })
-                });
-                const result = await res.json();
+            if (!publicKey || !privateKey) {
+                console.log("Keys generated manually...");
+                crypt.getKey(); 
+                publicKey = crypt.getPublicKey();
+                privateKey = crypt.getPrivateKey();
+            }
 
-                loadToast.remove();
-                btn.disabled = false;
+            const encryptedPrivateKey = CryptoJS.AES.encrypt(privateKey, pass).toString();
 
-                if(result.success) {
-                    showToast("Successfully joined!", "success");
-                    document.getElementById('regName').value = '';
-                    document.getElementById('regPass').value = '';
-                } else {
-                    showToast(result.error || "Error occurred");
-                }
+            const res = await fetch(`${API_URL}/join`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    roomId: currentRoom,
+                    participant: { name, publicKey, encryptedPrivateKey }
+                })
             });
+            const result = await res.json();
+
+            loadToast.remove();
+            btn.disabled = false;
+
+            if(result.success) {
+                showToast("Successfully joined!", "success");
+                document.getElementById('regName').value = '';
+                document.getElementById('regPass').value = '';
+            } else {
+                showToast(result.error || "Error occurred");
+            }
+
         } catch(e) {
             console.error(e);
             loadToast.remove();
-            showToast("An error occurred");
+            showToast("Error: " + e.message);
             btn.disabled = false;
         }
     };
@@ -342,39 +352,47 @@
         btn.disabled = true;
         const loadToast = showToast("Shuffling and encrypting...", "loading");
 
-        let shuffled = [...roomData.participants];
-        // Shuffle
-        for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
+        try {
+            await new Promise(r => setTimeout(r, 500));
 
-        let encryptedAssignments = {};
+            let shuffled = [...roomData.participants];
+            // Shuffle
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
 
-        for (let i = 0; i < shuffled.length; i++) {
-            let giver = shuffled[i];
-            let receiver = (i === shuffled.length - 1) ? shuffled[0] : shuffled[i + 1];
+            let encryptedAssignments = {};
 
-            const encryptor = new JSEncrypt();
-            encryptor.setPublicKey(giver.publicKey);
+            for (let i = 0; i < shuffled.length; i++) {
+                let giver = shuffled[i];
+                let receiver = (i === shuffled.length - 1) ? shuffled[0] : shuffled[i + 1];
+
+                const encryptor = new JSEncrypt();
+                encryptor.setPublicKey(giver.publicKey);
+                
+                const cipherText = encryptor.encrypt(receiver.name);
+                encryptedAssignments[giver.name] = cipherText;
+            }
+
+            const res = await fetch(`${API_URL}/start`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ roomId: currentRoom, assignments: encryptedAssignments })
+            });
             
-            const cipherText = encryptor.encrypt(receiver.name);
-            encryptedAssignments[giver.name] = cipherText;
-        }
-
-        const res = await fetch(`${API_URL}/start`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ roomId: currentRoom, assignments: encryptedAssignments })
-        });
-        
-        loadToast.remove();
-        btn.disabled = false;
-        
-        if(res.ok) {
-            showToast("Game started! Success.", "success");
-        } else {
-            showToast("Server error!");
+            loadToast.remove();
+            btn.disabled = false;
+            
+            if(res.ok) {
+                showToast("Game started! Success.", "success");
+            } else {
+                showToast("Server error!");
+            }
+        } catch(e) {
+            loadToast.remove();
+            btn.disabled = false;
+            showToast("Shuffle Error: " + e.message);
         }
     };
 
