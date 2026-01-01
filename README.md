@@ -20,7 +20,7 @@ If you just want to run the app without downloading the code, use this method. I
 Copy and paste this command into your terminal (PowerShell, CMD, or Bash):
 
 ```bash
-docker network create santa-net && docker run -d --name santa-mongo --network santa-net mongo && docker run -p 3000:3000 --network santa-net -e MONGO_URI=mongodb://santa-mongo:27017/secretsanta paanah/secret-santa:v1
+docker network create santa-net && docker run -d --name santa-mongo --network santa-net mongo && docker run -p 3000:3000 --network santa-net -e MONGO_URI=mongodb://santa-mongo:27017/secretsanta paanah/secret-santa:v2
 ```
 
 ### 2. Open in Browser
@@ -30,8 +30,8 @@ Visit: 👉 **http://localhost:3000**
 Since this method doesn't use Docker Compose, stop it manually:
 
 ```bash
-docker stop santa-mongo $(docker ps -q --filter ancestor=paanah/secret-santa:v1)
-docker rm santa-mongo $(docker ps -q --filter ancestor=paanah/secret-santa:v1)
+docker stop santa-mongo $(docker ps -q --filter ancestor=paanah/secret-santa:v2)
+docker rm santa-mongo $(docker ps -q --filter ancestor=paanah/secret-santa:v2)
 docker network rm santa-net
 ```
 
@@ -109,7 +109,7 @@ docker-santa/
 - **Start App (Dev):** `docker-compose up`
 - **Rebuild App:** `docker-compose up --build`
 - **Stop App (Dev):** `docker-compose down`
-- **Pull from Hub:** `docker pull paanah/secret-santa:v1`
+- **Pull from Hub:** `docker pull paanah/secret-santa:v2`
 - **Check Containers:** `docker ps`
 
 ---
