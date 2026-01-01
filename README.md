@@ -4,7 +4,7 @@ A secure, containerized web application for organizing Secret Santa events anony
 
 ## 🚀 Features
 
-- **Dockerized Environment:** Runs seamlessly with Docker Compose (No local Node/Mongo required).
+- **Dockerized Environment:** Runs seamlessly with Docker Compose or pre-built Docker Hub images.
 - **Secure P2P Encryption:** Uses RSA (JSEncrypt) + AES to encrypt assignments on the client side.
 - **Persistent Storage:** MongoDB volume ensures data isn't lost when containers stop.
 - **Interactive UI:** Christmas-themed interface with snow animations and confetti effects.
@@ -12,53 +12,65 @@ A secure, containerized web application for organizing Secret Santa events anony
 
 ---
 
-## 🛠️ Tech Stack
+## ⚡ Quick Start (No Code Required)
 
-- **Backend:** Node.js (Express.js)
-- **Database:** MongoDB (via Docker Image)
-- **DevOps:** Docker & Docker Compose
-- **Frontend:** HTML5, CSS3, Vanilla JavaScript
-- **Security:** `jsencrypt` (RSA), `crypto-js` (AES)
+If you just want to run the app without downloading the code, use this method. It pulls the pre-built image directly from Docker Hub.
+
+### 1. Run the "Magic" One-Liner
+Copy and paste this command into your terminal (PowerShell, CMD, or Bash):
+
+```bash
+docker network create santa-net && docker run -d --name santa-mongo --network santa-net mongo && docker run -p 3000:3000 --network santa-net -e MONGO_URI=mongodb://santa-mongo:27017/secretsanta paanah/secret-santa:v1
+```
+
+### 2. Open in Browser
+Visit: 👉 **http://localhost:3000**
+
+### 3. How to Stop (Quick Start)
+Since this method doesn't use Docker Compose, stop it manually:
+
+```bash
+docker stop santa-mongo $(docker ps -q --filter ancestor=paanah/secret-santa:v1)
+docker rm santa-mongo $(docker ps -q --filter ancestor=paanah/secret-santa:v1)
+docker network rm santa-net
+```
 
 ---
 
-## 📋 How to Run
+## 🛠️ Development Setup (Build from Source)
 
-You do not need to install Node.js or MongoDB on your machine. You only need **Docker Desktop** (or Docker Engine).
+Follow these steps if you want to inspect the code, modify it, or build the image yourself.
 
 ### 1. Clone the Repository
 
-~~~bash
+```bash
 git clone https://github.com/paanah/docker-secret-santa.git
 cd docker-secret-santa
-~~~
+```
 
 ### 2. Build and Start Containers
 
-Run the following command to build the Node.js image and start the database:
+Run the following command to build the Node.js image locally and start the database:
 
-~~~bash
+```bash
 docker-compose up --build
-~~~
+```
 
 *Wait until you see "MongoDB Connected inside Docker!" in the terminal.*
 
-### 3. Open in Browser
+### 3. Stop the App
 
-Visit the following URL:
-👉 **http://localhost:3000**
+To stop the application in development mode:
 
-To stop the application, press `Ctrl + C` in the terminal or run:
-
-~~~bash
+```bash
 docker-compose down
-~~~
+```
 
 ---
 
 ## 📂 Project Structure
 
-~~~text
+```text
 docker-santa/
 ├── models/
 │   └── Room.js          # MongoDB Schema (Data Structure)
@@ -69,7 +81,17 @@ docker-santa/
 ├── package.json         # Project dependencies
 ├── server.js            # Main backend server code
 └── .dockerignore        # Prevents node_modules from copying to container
-~~~
+```
+
+---
+
+## 🛠️ Tech Stack
+
+- **Backend:** Node.js (Express.js)
+- **Database:** MongoDB (Official Docker Image)
+- **DevOps:** Docker, Docker Compose, Docker Hub
+- **Frontend:** HTML5, CSS3, Vanilla JavaScript
+- **Security:** `jsencrypt` (RSA), `crypto-js` (AES)
 
 ---
 
@@ -82,13 +104,13 @@ docker-santa/
 
 ---
 
-## 🐳 Docker Commands (Cheatsheet)
+## 🐳 Docker Commands Cheatsheet
 
-- **Start App:** `docker-compose up`
+- **Start App (Dev):** `docker-compose up`
 - **Rebuild App:** `docker-compose up --build`
-- **Stop App:** `docker-compose down`
-- **View Logs:** `docker-compose logs -f`
-- **Check Containers:** `docker-compose ps`
+- **Stop App (Dev):** `docker-compose down`
+- **Pull from Hub:** `docker pull paanah/secret-santa:v1`
+- **Check Containers:** `docker ps`
 
 ---
 
