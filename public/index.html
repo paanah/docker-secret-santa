@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <title>Secret Santa</title>
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎄</text></svg>">
+
+    <link href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        :root {
+            --glass: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --red: #d63031; --dark-red: #b71540;
+            --green: #20bf6b; --gold: #f9ca24;
+            --bg-gradient: linear-gradient(135deg, #c0392b, #e74c3c, #a50000);
+        }
+        body {
+            margin: 0; padding: 20px;
+            background: var(--bg-gradient);
+            font-family: 'Quicksand', sans-serif; color: white;
+            min-height: 100vh; display: flex; justify-content: center; align-items: center;
+            overflow-x: hidden;
+        }
+        .bg-animation-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .bg-flake { position: absolute; color: rgba(255, 255, 255, 0.6); animation: fall linear infinite; }
+        @keyframes fall { to { transform: translateY(105vh) rotate(360deg); opacity: 0; } }
+
+        .container {
+            position: relative; z-index: 10;
+            background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            border: 2px solid var(--glass-border); border-radius: 24px;
+            padding: 40px 25px 30px 25px;
+            width: 100%; max-width: 400px; text-align: center;
+            box-shadow: 0 15px 45px rgba(100, 0, 0, 0.4);
+        }
+        .santa-icon {
+            font-size: 80px; margin-top: -90px; margin-bottom: 10px; display: inline-block;
+            filter: drop-shadow(0 5px 10px rgba(0,0,0,0.3)); animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float { 0%, 100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-10px) rotate(5deg); } }
+
+        h1 { font-family: 'Mountains of Christmas', cursive; font-size: 3rem; margin: 0 0 25px 0; color: var(--gold); text-shadow: 2px 2px 4px rgba(0,0,0,0.4); line-height: 1.2; }
+
+        .input-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; width: 100%; }
+        input { width: 100%; padding: 14px; border: none; border-radius: 12px; background: rgba(255, 255, 255, 0.95); color: #333; font-size: 16px; outline: none; font-weight: 600; }
+        button { width: 100%; padding: 14px 22px; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; background: var(--red); color: white; transition: 0.2s; box-shadow: 0 4px 0 var(--dark-red); }
+        button:active { transform: translateY(4px); box-shadow: none; }
+        button:disabled { background: #95a5a6; box-shadow: none; cursor: not-allowed; opacity: 0.7; }
+        .btn-green { background: var(--green); box-shadow: 0 4px 0 #218c74; }
+
+        /* TOAST */
+        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 350px; }
+        .toast { background: white; color: #333; padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: space-between; animation: slideIn 0.3s ease-out forwards; font-weight: bold; font-size: 14px; border-left: 5px solid #333; }
+        .toast.error { border-left-color: var(--red); color: var(--red); }
+        .toast.success { border-left-color: var(--green); color: var(--green); }
+        .toast.loading { border-left-color: var(--gold); color: #333; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateY(-20px); } }
+
+        .view-section { display: none; animation: fadeIn 0.4s ease-out; }
+        .active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .player-list { text-align: left; margin: 15px 0; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 10px; max-height: 150px; overflow-y: auto; }
+        .player-tag { display: inline-block; background: white; color: var(--red); padding: 4px 10px; border-radius: 20px; margin: 3px; font-size: 14px; font-weight: bold; }
+
+        .result-card { background: var(--gold); color: var(--red); padding: 25px; border-radius: 18px; margin-top: 25px; font-size: 1.5rem; font-weight: bold; box-shadow: 0 8px 25px rgba(249, 202, 36, 0.5); animation: popIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        .link-text { display: block; margin-top: 20px; font-size: 0.95rem; color: var(--gold); text-decoration: underline; cursor: pointer; }
+        .loader { width: 16px; height: 16px; border: 2px solid #FFF; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; margin-right: 5px;}
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="bg-animation-container" id="bgContainer"></div>
+<div id="toast-container"></div>
+
+<div class="container">
+    <div class="santa-icon">🎅</div>
+    <h1>Secret Santa</h1>
+
+    <div id="view-home" class="view-section active">
+        <p>Enter a room name to join or create a new one.</p>
+        <div class="input-group">
+            <input type="text" id="roomInput" placeholder="Room Name (e.g., Office_Party)">
+            <button onclick="checkRoom()">Enter</button>
+        </div>
+    </div>
+
+    <div id="view-create" class="view-section">
+        <h3>New Room: <span id="createRoomName" style="color:var(--gold)"></span></h3>
+        <div class="input-group">
+            <input type="password" id="newAdminPass" placeholder="Set Admin Password">
+            <button class="btn-green" onclick="createRoom()">🏠 Create Room</button>
+        </div>
+        <span class="link-text" onclick="goHome()">Back</span>
+    </div>
+
+    <div id="view-lobby" class="view-section">
+        <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 10px; margin-bottom: 15px;">
+            <small>Room:</small> <strong id="lobbyName" style="color:var(--gold); font-size: 1.1rem;">---</strong>
+        </div>
+
+        <div id="state-waiting">
+            <p>Register to join the game:</p>
+            <div class="input-group">
+                <input type="text" id="regName" placeholder="Your Name">
+                <input type="password" id="regPass" placeholder="Password (Don't forget!)">
+                <button id="btnJoin" onclick="joinGame()">🎅 Join Game</button>
+            </div>
+
+            <div class="player-list">
+                <small style="color:var(--gold)">Participants (<span id="pCount">0</span>):</small>
+                <div id="pList"></div>
+            </div>
+
+            <div style="margin-top: 25px; border-top: 1px dashed rgba(255,255,255,0.3); padding-top: 15px;">
+                <p style="font-size: 13px; margin: 0 0 5px 0; opacity: 0.8;">Admin Panel</p>
+                <div class="input-group">
+                    <input type="password" id="adminPassInput" placeholder="Admin Password">
+                    <button id="btnStart" class="btn-green" onclick="startGame()">🎲 Shuffle & Draw</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="state-started" style="display: none;">
+            <h2 style="color:var(--gold)">🎉 Draw Complete!</h2>
+            <p>Enter your password to see your match.</p>
+            <div class="input-group">
+                <input type="text" id="checkName" placeholder="Your Name">
+                <input type="password" id="checkPass" placeholder="Your Password">
+                <button class="btn-green" onclick="revealGift()">🎁 Reveal</button>
+            </div>
+            <div id="resultArea"></div>
+        </div>
+        <span class="link-text" onclick="location.reload()">Exit</span>
+    </div>
+</div>
+
+<script>
+    // --- NOTIFICATION SYSTEM ---
+    window.showToast = (message, type = 'error') => {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        const icon = type === 'success' ? '✅' : (type === 'loading' ? '<span class="loader"></span>' : '⚠️');
+        toast.innerHTML = `<span>${icon} ${message}</span>`;
+        container.appendChild(toast);
+        if(type !== 'loading') {
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s ease-out forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        return toast;
+    }
+
+    // --- BACKGROUND ANIMATION ---
+    function createBgIcons() {
+        const container = document.getElementById('bgContainer');
+        const icons = ['❄', '🎄', '🎁'];
+        for(let i=0; i<35; i++){
+            const flake = document.createElement('div');
+            flake.className = 'bg-flake';
+            flake.innerHTML = icons[Math.floor(Math.random() * icons.length)];
+            flake.style.left = Math.random() * 100 + '%';
+            flake.style.animationDuration = (Math.random() * 5 + 4) + 's';
+            flake.style.fontSize = (Math.random() * 15 + 15) + 'px';
+            flake.style.opacity = Math.random() * 0.5 + 0.2;
+            container.appendChild(flake);
+        }
+    }
+    createBgIcons();
+
+    // ---------------------------------------------
+    // LOGIC (DOCKER / NODEJS BACKEND)
+    // ---------------------------------------------
+    const API_URL = '/api'; 
+    let currentRoom = null;
+    let roomData = null;
+    let pollingInterval = null;
+
+    const showView = (id) => {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+    window.goHome = () => showView('view-home');
+
+    // --- CHECK ROOM ---
+    window.checkRoom = async () => {
+        const input = document.getElementById('roomInput');
+        const roomId = input.value.trim().replace(/\s+/g, '_').toLowerCase();
+        if (!roomId) return showToast("Please enter a room name!");
+
+        try {
+            const res = await fetch(`${API_URL}/room/${roomId}`);
+            const data = await res.json();
+            
+            currentRoom = roomId;
+            if (data.exists) {
+                enterLobby(data.data);
+            } else {
+                document.getElementById('createRoomName').innerText = roomId;
+                showView('view-create');
+            }
+        } catch(e) {
+            console.error(e);
+            showToast("Cannot connect to server!", "error");
+        }
+    };
+
+    // --- CREATE ROOM ---
+    window.createRoom = async () => {
+        const pass = document.getElementById('newAdminPass').value;
+        if(!pass) return showToast("Admin password is required!");
+        
+        try {
+            const res = await fetch(`${API_URL}/room`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ roomId: currentRoom, adminPass: pass })
+            });
+            const result = await res.json();
+            
+            if(result.success) {
+                enterLobby(result.data);
+                showToast("Room created successfully!", "success");
+            } else {
+                showToast(result.error);
+            }
+        } catch(e) { showToast("An error occurred"); }
+    };
+
+    function enterLobby(data) {
+        roomData = data;
+        document.getElementById('lobbyName').innerText = currentRoom;
+        showView('view-lobby');
+        renderUI();
+
+        // POLLING
+        if(pollingInterval) clearInterval(pollingInterval);
+        pollingInterval = setInterval(async () => {
+            try {
+                const res = await fetch(`${API_URL}/room/${currentRoom}`);
+                const json = await res.json();
+                if(json.exists) {
+                    if(JSON.stringify(roomData) !== JSON.stringify(json.data)){
+                        roomData = json.data;
+                        renderUI();
+                    }
+                }
+            } catch(e) {}
+        }, 2000);
+    }
+
+    function renderUI() {
+        const pCount = document.getElementById('pCount');
+        const pList = document.getElementById('pList');
+        const waitingArea = document.getElementById('state-waiting');
+        const startedArea = document.getElementById('state-started');
+        
+        pCount.innerText = roomData.participants.length;
+        pList.innerHTML = roomData.participants.map(p => `<span class="player-tag">${p.name}</span>`).join('');
+        
+        if (roomData.isStarted) {
+            waitingArea.style.display = 'none';
+            startedArea.style.display = 'block';
+        } else {
+            waitingArea.style.display = 'block';
+            startedArea.style.display = 'none';
+        }
+    }
+
+    // --- JOIN GAME ---
+    window.joinGame = async () => {
+        const name = document.getElementById('regName').value.trim();
+        const pass = document.getElementById('regPass').value.trim();
+        const btn = document.getElementById('btnJoin');
+        
+        if(!name || !pass) return showToast("Please fill in all fields!");
+        
+        const exists = roomData.participants.some(p => p.name.toLowerCase() === name.toLowerCase());
+        if(exists) return showToast("This name is already taken!");
+
+        btn.disabled = true;
+        const loadToast = showToast("Generating encryption keys...", "loading");
+
+        try {
+            const crypt = new JSEncrypt({default_key_size: 1024});
+            crypt.getKey(async () => {
+                const publicKey = crypt.getPublicKey();
+                const privateKey = crypt.getPrivateKey();
+                const encryptedPrivateKey = CryptoJS.AES.encrypt(privateKey, pass).toString();
+
+                const res = await fetch(`${API_URL}/join`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        roomId: currentRoom,
+                        participant: { name, publicKey, encryptedPrivateKey }
+                    })
+                });
+                const result = await res.json();
+
+                loadToast.remove();
+                btn.disabled = false;
+
+                if(result.success) {
+                    showToast("Successfully joined!", "success");
+                    document.getElementById('regName').value = '';
+                    document.getElementById('regPass').value = '';
+                } else {
+                    showToast(result.error || "Error occurred");
+                }
+            });
+        } catch(e) {
+            console.error(e);
+            loadToast.remove();
+            showToast("An error occurred");
+            btn.disabled = false;
+        }
+    };
+
+    // --- START GAME (SHUFFLE) ---
+    window.startGame = async () => {
+        const pass = document.getElementById('adminPassInput').value;
+        if(pass !== roomData.adminPass) return showToast("Incorrect admin password!");
+        if(roomData.participants.length < 2) return showToast("At least 2 participants required!");
+        if(!confirm("Are you sure? This cannot be undone!")) return;
+
+        const btn = document.getElementById('btnStart');
+        btn.disabled = true;
+        const loadToast = showToast("Shuffling and encrypting...", "loading");
+
+        let shuffled = [...roomData.participants];
+        // Shuffle
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        let encryptedAssignments = {};
+
+        for (let i = 0; i < shuffled.length; i++) {
+            let giver = shuffled[i];
+            let receiver = (i === shuffled.length - 1) ? shuffled[0] : shuffled[i + 1];
+
+            const encryptor = new JSEncrypt();
+            encryptor.setPublicKey(giver.publicKey);
+            
+            const cipherText = encryptor.encrypt(receiver.name);
+            encryptedAssignments[giver.name] = cipherText;
+        }
+
+        const res = await fetch(`${API_URL}/start`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ roomId: currentRoom, assignments: encryptedAssignments })
+        });
+        
+        loadToast.remove();
+        btn.disabled = false;
+        
+        if(res.ok) {
+            showToast("Game started! Success.", "success");
+        } else {
+            showToast("Server error!");
+        }
+    };
+
+    // --- REVEAL GIFT ---
+    window.revealGift = () => {
+        const name = document.getElementById('checkName').value.trim();
+        const pass = document.getElementById('checkPass').value.trim();
+        const resultArea = document.getElementById('resultArea');
+        
+        const user = roomData.participants.find(p => p.name.toLowerCase() === name.toLowerCase());
+        if (!user) return showToast("User not found!");
+
+        try {
+            const bytes = CryptoJS.AES.decrypt(user.encryptedPrivateKey, pass);
+            const privateKey = bytes.toString(CryptoJS.enc.Utf8);
+            if(!privateKey) throw new Error("Incorrect password");
+
+            const decryptor = new JSEncrypt();
+            decryptor.setPrivateKey(privateKey);
+            
+            const encryptedAssignment = roomData.assignments[user.name];
+            const targetName = decryptor.decrypt(encryptedAssignment);
+
+            if(!targetName) throw new Error("Decryption error");
+
+            resultArea.innerHTML = `<div class="result-card">You are the Secret Santa for <u style="color:white">${targetName}</u>! 🎅</div>`;
+            triggerConfetti();
+            
+        } catch (e) {
+            console.error(e);
+            showToast("Incorrect password!", "error");
+        }
+    };
+
+    function triggerConfetti() {
+        var duration = 3 * 1000;
+        var animationEnd = Date.now() + duration;
+        var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+        function randomInRange(min, max) { return Math.random() * (max - min) + min; }
+        var interval = setInterval(function() {
+            var timeLeft = animationEnd - Date.now();
+            if (timeLeft <= 0) return clearInterval(interval);
+            var particleCount = 50 * (timeLeft / duration);
+            confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+            confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+        }, 250);
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  santa-app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URI=mongodb://mongo_db:27017/secretsanta
+    depends_on:
+      - mongo_db
+    networks:
+      - santa-network
+
+  mongo_db:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - santa-data:/data/db
+    networks:
+      - santa-network
+
+networks:
+  santa-network:
+
+volumes:
+  santa-data:
